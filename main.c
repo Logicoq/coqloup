@@ -96,6 +96,9 @@ typedef struct Level Level;
 struct Level
 {
   uint8_t* grid;
+  size_t width;
+  size_t height;
+  size_t size;
 };
 
 typedef struct ScreenManager ScreenManager;
@@ -135,6 +138,7 @@ void debug_printf(const char* fmt, const char* fn, const char* fmt2, ...);
 void game_draw(GameManager* gm);
 void background_draw(GameManager* gm);
 void player_draw(GameManager* gm);
+void level_draw(GameManager* gm);
 void game_events(GameManager* gm);
 void game_load(GameManager* gm);
 void game_reset(GameManager* gm);
@@ -144,6 +148,8 @@ void key_state_update(uint8_t* state, bool is_down);
 void player_update(GameManager* gm, size_t player_id);
 void sdl_load(GameManager* gm);
 void sdl_unload(GameManager* gm);
+void sdl_renderer_color_set(SDL_Renderer* renderer, Uint8 red, Uint8 green, Uint8 blue);
+void sdl_renderer_color_reset(SDL_Renderer* renderer);
 
 // XXX: Debug functions
 
@@ -257,20 +263,33 @@ player_update(GameManager* gm, size_t player_id)
     }
 }
 
+// XXX: Renderer function
+
+void
+sdl_renderer_color_set(SDL_Renderer* renderer, Uint8 red, Uint8 green, Uint8 blue)
+{
+  const int sdl_setrenderdrawcolor_result = SDL_SetRenderDrawColor(renderer, red, green, blue, 0xff);
+  SDL_PanicCheck(sdl_setrenderdrawcolor_result, "SetRenderDrawColor");
+}
+
+void
+sdl_renderer_color_reset(SDL_Renderer* renderer)
+{
+  sdl_renderer_color_set(renderer, 0x00, 0x00, 0x00);
+}
+
 // XXX: Draw functions
 void
 background_draw(GameManager* gm)
 {
   ScreenManager* sm = &gm->screen_manager;
 
-  const int sdl_setrenderdrawcolor_gray_result = SDL_SetRenderDrawColor(sm->renderer, 0x7f, 0x7f, 0x7f, 0xff);
-  SDL_PanicCheck(sdl_setrenderdrawcolor_gray_result, "SetRenderDrawColor");
+  sdl_renderer_color_set(sm->renderer, 0x7f, 0x7f, 0x7f);
 
   const int sdl_renderfillrect_result = SDL_RenderFillRect(sm->renderer, &(const SDL_Rect){.x = 0, .y = 0, .w = (int)sm->width, .h = (int)sm->height});
   SDL_PanicCheck(sdl_renderfillrect_result, "RenderFillRect");
 
-  const int sdl_setrenderdrawcolor_black_result = SDL_SetRenderDrawColor(sm->renderer, 0x00, 0x00, 0x00, 0xff);
-  SDL_PanicCheck(sdl_setrenderdrawcolor_black_result, "SetRenderDrawColor");
+  sdl_renderer_color_reset(sm->renderer);
 }
 
 void
@@ -278,14 +297,38 @@ player_draw(GameManager* gm)
 {
   ScreenManager* sm = &gm->screen_manager;
 
-  const int sdl_setrenderdrawcolor_gray_result = SDL_SetRenderDrawColor(sm->renderer, 0xff, 0xff, 0x00, 0xff);
-  SDL_PanicCheck(sdl_setrenderdrawcolor_gray_result, "SetRenderDrawColor");
+  sdl_renderer_color_set(sm->renderer, 0xff, 0xff, 0x00);
 
   const int sdl_renderfillrect_result = SDL_RenderFillRect(sm->renderer, &(const SDL_Rect){.x = (int)gm->player->position.x - 4, .y = (int)gm->player->position.y, .w = 8, .h = 8});
   SDL_PanicCheck(sdl_renderfillrect_result, "RenderFillRect");
 
-  const int sdl_setrenderdrawcolor_black_result = SDL_SetRenderDrawColor(sm->renderer, 0x00, 0x00, 0x00, 0xff);
-  SDL_PanicCheck(sdl_setrenderdrawcolor_black_result, "SetRenderDrawColor");
+  sdl_renderer_color_reset(sm->renderer);
+}
+
+void
+level_draw(GameManager* gm)
+{
+  ScreenManager* sm = &gm->screen_manager;
+
+  for (size_t i = 0; i < gm->level.width; ++i)
+    {
+      for (size_t j = 0; j < gm->level.height; ++j)
+        {
+          if (gm->level.grid[j * gm->level.width + i])
+            {
+              sdl_renderer_color_set(sm->renderer, 0xff, 0xff, 0xff);
+            }
+          else
+            {
+              sdl_renderer_color_set(sm->renderer, 0x00, 0x00, 0x00);
+            }
+
+          const int sdl_renderfillrect_result = SDL_RenderFillRect(sm->renderer, &(const SDL_Rect){.x = (int)(i * 64), .y = (int)(j * 64), .w = 63, .h = 63});
+          SDL_PanicCheck(sdl_renderfillrect_result, "RenderFillRect");
+        }
+    }
+
+  sdl_renderer_color_reset(sm->renderer);
 }
 
 // XXX: Game functions
@@ -302,6 +345,7 @@ game_draw(GameManager* gm)
   SDL_PanicCheck(sdl_renderclear_result, "RenderClear");
 
   background_draw(gm);
+  level_draw(gm);
   player_draw(gm);
 
   // SDL_RenderCopyExF()
@@ -425,6 +469,31 @@ game_reset(GameManager* gm)
 {
   gm->player[0].position.x = (float)gm->screen_manager.width / 2.0f;
   gm->player[0].position.y = (float)gm->screen_manager.height / 2.0f;
+
+  gm->level.width = 8;
+  gm->level.height = 8;
+  gm->level.size = gm->level.width * gm->level.height;
+  gm->level.grid = malloc(sizeof(*gm->level.grid)*gm->level.size);
+
+  uint8_t level[64] = {
+    1, 1, 1, 1, 1, 1, 1, 1,
+    1, 0, 1, 0, 0, 0, 0, 1,
+    1, 0, 1, 0, 0, 0, 0, 1,
+    1, 0, 1, 0, 0, 0, 0, 1,
+    1, 0, 0, 0, 0, 0, 0, 1,
+    1, 0, 0, 0, 0, 1, 0, 1,
+    1, 0, 0, 0, 0, 0, 0, 1,
+    1, 1, 1, 1, 1, 1, 1, 1,
+};
+
+  for (size_t i = 0; i < gm->level.width; ++i)
+    {
+      for (size_t j = 0; j < gm->level.height; ++j)
+        {
+          size_t cell = j * gm->level.width + i;
+          gm->level.grid[cell] = level[cell];
+        }
+    }
 }
 
 void
