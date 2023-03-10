@@ -238,22 +238,22 @@ player_update(GameManager* gm, size_t player_id)
 
   if (key_get(gm, player_id, eKey_up))
     {
-      player->position.y += 1.0f;
+      player->position.y -= 5.0f;
     }
 
   if (key_get(gm, player_id, eKey_down))
     {
-      player->position.y -= 1.0f;
+      player->position.y += 5.0f;
     }
 
   if (key_get(gm, player_id, eKey_left))
     {
-      player->position.x += 1.0f;
+      player->position.x -= 5.0f;
     }
 
   if (key_get(gm, player_id, eKey_right))
     {
-      player->position.x -= 1.0f;
+      player->position.x += 5.0f;
     }
 }
 
