@@ -87,6 +87,8 @@ struct Player
 {
   SDL_Color color;
   SDL_FPoint position;
+  SDL_FPoint delta;
+  float angle;
   SDL_Scancode* key_map;
   int64_t score;
   uint8_t* key_states;
@@ -138,6 +140,7 @@ void debug_printf(const char* fmt, const char* fn, const char* fmt2, ...);
 void game_draw(GameManager* gm);
 void background_draw(GameManager* gm);
 void player_draw(GameManager* gm);
+void player_direction_draw(GameManager* gm);
 void level_draw(GameManager* gm);
 void game_events(GameManager* gm);
 void game_load(GameManager* gm);
@@ -244,22 +247,36 @@ player_update(GameManager* gm, size_t player_id)
 
   if (key_get(gm, player_id, eKey_up))
     {
-      player->position.y -= 5.0f;
+      player->position.x += player->delta.x;
+      player->position.y += player->delta.y;
     }
 
   if (key_get(gm, player_id, eKey_down))
     {
-      player->position.y += 5.0f;
+      player->position.x -= player->delta.x;
+      player->position.y -= player->delta.y;
     }
 
   if (key_get(gm, player_id, eKey_left))
     {
-      player->position.x -= 5.0f;
+      player->angle -= 0.1f;
+      if (player->angle < 0.0f)
+      {
+        player->angle += M_2PI;
+      }
+      player->delta.x = cosf(player->angle) * 5.0f;
+      player->delta.y = sinf(player->angle) * 5.0f;
     }
 
   if (key_get(gm, player_id, eKey_right))
     {
-      player->position.x += 5.0f;
+      player->angle += 0.1f;
+      if (player->angle > M_2PI)
+      {
+        player->angle -= M_2PI;
+      }
+      player->delta.x = cosf(player->angle) * 5.0f;
+      player->delta.y = sinf(player->angle) * 5.0f;
     }
 }
 
@@ -296,11 +313,26 @@ void
 player_draw(GameManager* gm)
 {
   ScreenManager* sm = &gm->screen_manager;
+  Player* player = &gm->player[0];
 
   sdl_renderer_color_set(sm->renderer, 0xff, 0xff, 0x00);
 
-  const int sdl_renderfillrect_result = SDL_RenderFillRect(sm->renderer, &(const SDL_Rect){.x = (int)gm->player->position.x - 4, .y = (int)gm->player->position.y, .w = 8, .h = 8});
+  const int sdl_renderfillrect_result = SDL_RenderFillRect(sm->renderer, &(const SDL_Rect){.x = (int)(player->position.x - 4.0f), .y = (int)(player->position.y - 4.0f), .w = 8, .h = 8});
   SDL_PanicCheck(sdl_renderfillrect_result, "RenderFillRect");
+
+  sdl_renderer_color_reset(sm->renderer);
+}
+
+void
+player_direction_draw(GameManager* gm)
+{
+  ScreenManager* sm = &gm->screen_manager;
+  Player* player = &gm->player[0];
+
+  sdl_renderer_color_set(sm->renderer, 0xff, 0xff, 0x00);
+
+  const int sdl_renderdrawline_result = SDL_RenderDrawLine(sm->renderer, (int)player->position.x, (int)player->position.y, (int)(player->position.x + player->delta.x * 5.0f), (int)(player->position.y + player->delta.y * 5.0f));
+  SDL_PanicCheck(sdl_renderdrawline_result, "RenderDrawLine");
 
   sdl_renderer_color_reset(sm->renderer);
 }
@@ -347,6 +379,7 @@ game_draw(GameManager* gm)
   background_draw(gm);
   level_draw(gm);
   player_draw(gm);
+  player_direction_draw(gm);
 
   // SDL_RenderCopyExF()
 
