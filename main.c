@@ -360,13 +360,17 @@ game_load(GameManager* gm)
 
   srand((unsigned int)gm->seed);
 
-  gm->name = "SDL2 boilerplate";
+  gm->name = "Coqloup prototype";
 
   sm->width = kScreenWidth;
   sm->height = kScreenHeight;
   sm->pixels = kScreenPixels;
 
-  for (size_t i = 0; i < 4; ++i)
+  gm->seed = time(NULL);
+  
+  gm->players_count = 1;
+
+  for (size_t i = 0; i < gm->players_count; ++i)
     {
       gm->player[i].key_states = calloc(eKey_count, sizeof(*gm->player->key_states));
       gm->player[i].key_map = calloc(eKey_count, sizeof(*gm->player->key_map));
@@ -375,10 +379,8 @@ game_load(GameManager* gm)
       gm->player[i].collision_box.h = 16;
     }
 
-  gm->seed = time(NULL);
-
   // XXX: Only for testing
-  for (size_t i = 0; i < 4; ++i)
+  for (size_t i = 0; i < gm->players_count; ++i)
     {
       gm->player[i].key_map[eKey_up] = SDL_SCANCODE_W;
       gm->player[i].key_map[eKey_left] = SDL_SCANCODE_A;
@@ -389,27 +391,14 @@ game_load(GameManager* gm)
       gm->player[i].key_map[eKey_pause] = SDL_SCANCODE_P;
     }
 
-  gm->players_count = 4;
 }
 
 void
 game_reset(GameManager* gm)
 {
-  gm->player[0].position.x = 16.0f;
-  gm->player[0].position.y = 48.0f;
+  gm->player[0].position.x = 0.0f;
+  gm->player[0].position.y = 0.0f;
   gm->player[0].color = (SDL_Color){.r = 0xff, .g = 0x00, .b = 0x00, .a = 0xff};
-
-  gm->player[1].position.x = 303.0f;
-  gm->player[1].position.y = 48.0f;
-  gm->player[1].color = (SDL_Color){.r = 0x00, .g = 0xff, .b = 0x00, .a = 0xff};
-
-  gm->player[2].position.x = 303.0f;
-  gm->player[2].position.y = 207.0f;
-  gm->player[2].color = (SDL_Color){.r = 0x00, .g = 0x00, .b = 0xff, .a = 0xff};
-
-  gm->player[3].position.x = 16.0f;
-  gm->player[3].position.y = 207.0f;
-  gm->player[3].color = (SDL_Color){.r = 0xff, .g = 0x00, .b = 0xff, .a = 0xff};
 }
 
 void
