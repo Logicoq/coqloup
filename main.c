@@ -44,8 +44,8 @@
 
 #define kDegreeToRadian (M_PI / 180.0f)
 
-#define kScreenWidth 398
-#define kScreenHeight 224
+#define kScreenWidth 1024
+#define kScreenHeight 512
 #define kScreenPixels (kScreenWidth * kScreenHeight)
 
 // XXX: Data structures
@@ -87,7 +87,6 @@ struct Player
 {
   SDL_Color color;
   SDL_FPoint position;
-  SDL_FRect collision_box;
   SDL_Scancode* key_map;
   int64_t score;
   uint8_t* key_states;
@@ -134,6 +133,7 @@ GameManager g_game_manager = {0};
 void SDL_PanicCheck(const bool condition, const char* function);
 void debug_printf(const char* fmt, const char* fn, const char* fmt2, ...);
 void game_draw(GameManager* gm);
+void background_draw(GameManager* gm);
 void game_events(GameManager* gm);
 void game_load(GameManager* gm);
 void game_reset(GameManager* gm);
@@ -143,7 +143,6 @@ void key_state_update(uint8_t* state, bool is_down);
 void player_update(GameManager* gm, size_t player_id);
 void sdl_load(GameManager* gm);
 void sdl_unload(GameManager* gm);
-void ui_draw(GameManager* gm);
 
 // XXX: Debug functions
 
@@ -257,6 +256,22 @@ player_update(GameManager* gm, size_t player_id)
     }
 }
 
+// XXX: Draw functions
+void
+background_draw(GameManager* gm)
+{
+  ScreenManager* sm = &gm->screen_manager;
+
+  const int sdl_setrenderdrawcolor_gray_result = SDL_SetRenderDrawColor(sm->renderer, 0x7f, 0x7f, 0x7f, 0xff);
+  SDL_PanicCheck(sdl_setrenderdrawcolor_gray_result, "SetRenderDrawColor");
+
+  const int sdl_renderfillrect_result = SDL_RenderFillRect(sm->renderer, &(const SDL_Rect){.x = 0, .y = 0, .w = (int)sm->width, .h = (int)sm->height});
+  SDL_PanicCheck(sdl_renderfillrect_result, "RenderFillRect");
+
+  const int sdl_setrenderdrawcolor_black_result = SDL_SetRenderDrawColor(sm->renderer, 0x00, 0x00, 0x00, 0xff);
+  SDL_PanicCheck(sdl_setrenderdrawcolor_black_result, "SetRenderDrawColor");
+}
+
 // XXX: Game functions
 
 void
@@ -270,6 +285,7 @@ game_draw(GameManager* gm)
   const int sdl_renderclear_result = SDL_RenderClear(sm->renderer);
   SDL_PanicCheck(sdl_renderclear_result, "RenderClear");
 
+  background_draw(gm);
   // TODO
   // player_draw(gm);
 
@@ -367,16 +383,13 @@ game_load(GameManager* gm)
   sm->pixels = kScreenPixels;
 
   gm->seed = time(NULL);
-  
+
   gm->players_count = 1;
 
   for (size_t i = 0; i < gm->players_count; ++i)
     {
       gm->player[i].key_states = calloc(eKey_count, sizeof(*gm->player->key_states));
       gm->player[i].key_map = calloc(eKey_count, sizeof(*gm->player->key_map));
-
-      gm->player[i].collision_box.w = 16;
-      gm->player[i].collision_box.h = 16;
     }
 
   // XXX: Only for testing
@@ -390,7 +403,6 @@ game_load(GameManager* gm)
       gm->player[i].key_map[eKey_cancel] = SDL_SCANCODE_ESCAPE;
       gm->player[i].key_map[eKey_pause] = SDL_SCANCODE_P;
     }
-
 }
 
 void
