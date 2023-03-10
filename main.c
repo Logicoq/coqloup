@@ -502,6 +502,10 @@ game_reset(GameManager* gm)
 {
   gm->player[0].position.x = (float)gm->screen_manager.width / 2.0f;
   gm->player[0].position.y = (float)gm->screen_manager.height / 2.0f;
+  gm->player[0].delta.x = 0.0f;
+  gm->player[0].delta.y = 0.0f;
+  gm->player[0].angle = 0.0f;
+  gm->player[0].score = 0;
 
   gm->level.width = 8;
   gm->level.height = 8;
