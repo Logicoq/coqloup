@@ -134,6 +134,7 @@ void SDL_PanicCheck(const bool condition, const char* function);
 void debug_printf(const char* fmt, const char* fn, const char* fmt2, ...);
 void game_draw(GameManager* gm);
 void background_draw(GameManager* gm);
+void player_draw(GameManager* gm);
 void game_events(GameManager* gm);
 void game_load(GameManager* gm);
 void game_reset(GameManager* gm);
@@ -272,6 +273,21 @@ background_draw(GameManager* gm)
   SDL_PanicCheck(sdl_setrenderdrawcolor_black_result, "SetRenderDrawColor");
 }
 
+void
+player_draw(GameManager* gm)
+{
+  ScreenManager* sm = &gm->screen_manager;
+
+  const int sdl_setrenderdrawcolor_gray_result = SDL_SetRenderDrawColor(sm->renderer, 0xff, 0xff, 0x00, 0xff);
+  SDL_PanicCheck(sdl_setrenderdrawcolor_gray_result, "SetRenderDrawColor");
+
+  const int sdl_renderfillrect_result = SDL_RenderFillRect(sm->renderer, &(const SDL_Rect){.x = (int)gm->player->position.x - 4, .y = (int)gm->player->position.y, .w = 8, .h = 8});
+  SDL_PanicCheck(sdl_renderfillrect_result, "RenderFillRect");
+
+  const int sdl_setrenderdrawcolor_black_result = SDL_SetRenderDrawColor(sm->renderer, 0x00, 0x00, 0x00, 0xff);
+  SDL_PanicCheck(sdl_setrenderdrawcolor_black_result, "SetRenderDrawColor");
+}
+
 // XXX: Game functions
 
 void
@@ -286,8 +302,7 @@ game_draw(GameManager* gm)
   SDL_PanicCheck(sdl_renderclear_result, "RenderClear");
 
   background_draw(gm);
-  // TODO
-  // player_draw(gm);
+  player_draw(gm);
 
   // SDL_RenderCopyExF()
 
@@ -408,9 +423,8 @@ game_load(GameManager* gm)
 void
 game_reset(GameManager* gm)
 {
-  gm->player[0].position.x = 0.0f;
-  gm->player[0].position.y = 0.0f;
-  gm->player[0].color = (SDL_Color){.r = 0xff, .g = 0x00, .b = 0x00, .a = 0xff};
+  gm->player[0].position.x = (float)gm->screen_manager.width / 2.0f;
+  gm->player[0].position.y = (float)gm->screen_manager.height / 2.0f;
 }
 
 void
