@@ -82,6 +82,15 @@ enum eKeyState
 };
 typedef enum eKeyState eKeyState;
 
+typedef struct Raycaster Raycaster;
+struct Raycaster
+{
+  SDL_FRect position;
+  SDL_FRect offset;
+  float angle;
+  size_t depth_of_field;
+};
+
 typedef struct Player Player;
 struct Player
 {
@@ -121,6 +130,7 @@ struct GameManager
   const char* name;
   Level level;
   Player player[4];
+  Raycaster raycaster;
   ScreenManager screen_manager;
   bool game_over;
   eGameState state;
@@ -153,6 +163,8 @@ void sdl_load(GameManager* gm);
 void sdl_unload(GameManager* gm);
 void sdl_renderer_color_set(SDL_Renderer* renderer, Uint8 red, Uint8 green, Uint8 blue);
 void sdl_renderer_color_reset(SDL_Renderer* renderer);
+void raycaster_update(GameManager* gm);
+void raycaster_ui_draw(GameManager* gm);
 
 // XXX: Debug functions
 
@@ -338,6 +350,21 @@ player_direction_draw(GameManager* gm)
 }
 
 void
+raycaster_ui_draw(GameManager* gm)
+{
+  ScreenManager* sm = &gm->screen_manager;
+  Player* p = &gm->player[0];
+  Raycaster* r = &gm->raycaster;
+
+  sdl_renderer_color_set(sm->renderer, 0x00, 0xff, 0x00);
+
+  const int sdl_renderdrawline_result = SDL_RenderDrawLine(sm->renderer, (int)p->position.x, (int)p->position.y, (int)r->position.x, (int)r->position.y);
+  SDL_PanicCheck(sdl_renderdrawline_result, "RenderDrawLine");
+
+  sdl_renderer_color_reset(sm->renderer);
+}
+
+void
 level_draw(GameManager* gm)
 {
   ScreenManager* sm = &gm->screen_manager;
@@ -363,63 +390,132 @@ level_draw(GameManager* gm)
   sdl_renderer_color_reset(sm->renderer);
 }
 
-// XXX: Game functions
-
 void
-game_draw(GameManager* gm)
+raycaster_update(GameManager* gm)
 {
-  ScreenManager* sm = &gm->screen_manager;
+  Player* p = &gm->player[0];
+  Raycaster* r = &gm->raycaster;
+  int32_t mx = 0;
+  int32_t my = 0;
+  int32_t mp = 0;
 
-  // XXX: Rendering the game to a texture
-  const int sdl_setrendertarget_result = SDL_SetRenderTarget(sm->renderer, sm->texture);
-  SDL_PanicCheck(sdl_setrendertarget_result, "SetRenderTarget");
-  const int sdl_renderclear_result = SDL_RenderClear(sm->renderer);
-  SDL_PanicCheck(sdl_renderclear_result, "RenderClear");
+  r->depth_of_field = 0; // depth of field?
 
-  background_draw(gm);
-  level_draw(gm);
-  player_draw(gm);
-  player_direction_draw(gm);
+  r->position.x = 0.0f;
+  r->position.y = 0.0f;
+  r->angle = p->angle;
+  r->offset.x = 0.0f;
+  r->offset.y = 0.0f;
 
-  // SDL_RenderCopyExF()
-
-  // XXX: Rendering the final texture to screen
-  const int sdl_setrendertarget_final_result = SDL_SetRenderTarget(sm->renderer, NULL);
-  SDL_PanicCheck(sdl_setrendertarget_final_result, "SetRenderTarget");
-  const int sdl_renderclear_final_result = SDL_RenderClear(sm->renderer);
-  SDL_PanicCheck(sdl_renderclear_final_result, "RenderClear");
-  const int sdl_rendercopy_result = SDL_RenderCopy(sm->renderer, sm->texture, NULL, NULL);
-  SDL_PanicCheck(sdl_rendercopy_result, "RenderCopy");
-
-  SDL_RenderPresent(sm->renderer);
-}
-
-void
-game_events(GameManager* gm)
-{
-  SDL_PumpEvents();
-  SDL_Event event = {0};
-
-  while (SDL_PollEvent(&event))
+  for (size_t i = 0; i < 1; ++i)
+  {
+    r->depth_of_field = 0;
+    float a_tan = -1.0f / tanf(r->angle);
+    if (r->angle > M_PI)
     {
-      switch (event.type)
-        {
-        case SDL_QUIT:
-          gm->game_over = true;
-          break;
+      r->position.y = (float)(((int) p->position.y >> 6) << 6) - 0.0001f;
+      r->position.x = (p->position.y - r->position.y) * a_tan + p->position.x;
+      r->offset.y = -64.0f;
+      r->offset.x = -r->offset.y * a_tan;
+    }
+    if (r->angle < M_PI)
+    {
+      r->position.y = (float)(((int) p->position.y >> 6) << 6) + 64.0f;
+      r->position.x = (p->position.y - r->position.y) * a_tan + p->position.x;
+      r->offset.y = 64.0f;
+      r->offset.x = -r->offset.y * a_tan;
+    }
+    // r->angle == 0 || r->angle == M_PI
+    if (r->angle <= SDL_FLT_EPSILON || r->angle - M_PI <= SDL_FLT_EPSILON)
+    {
+      r->position.x = p->position.x;
+      r->position.y = p->position.y;
+      r->depth_of_field = 8;
+    }
+    while (r->depth_of_field < 8)
+    {
+      mx = (int32_t)(r->position.x)>>6;
+      my = (int32_t)(r->position.y)>>6;
+      mp = my * (int32_t)gm->level.width + mx;
+      
+      //TODO: Check that 0 < mp < level.size
+      if (mp < 0 || mp > (int32_t)gm->level.size)
+      {
+        break;
+      }
 
-        case SDL_WINDOWEVENT:
-          if (event.window.event == SDL_WINDOWEVENT_CLOSE)
-            {
-              gm->game_over = true;
-              break;
-            }
-          else if (event.window.event == SDL_WINDOWEVENT_FOCUS_LOST)
-            {
-              if (gm->screen_manager.fullscreen)
-                {
-                  const int sdl_showcursor_result = SDL_ShowCursor(1);
-                  SDL_PanicCheck(sdl_showcursor_result < 0, "ShowCursor");
+      if ((mp < (int32_t)gm->level.size) && (gm->level.grid[mp] == 1))
+      {
+        r->depth_of_field=8;
+      }
+      else
+      {
+        r->position.x += r->offset.x;
+        r->position.y += r->offset.y;
+        r->depth_of_field += 1;
+      }
+      }
+    }
+  }
+
+  // XXX: Game functions
+
+  void
+  game_draw(GameManager* gm)
+  {
+    ScreenManager* sm = &gm->screen_manager;
+
+    // XXX: Rendering the game to a texture
+    const int sdl_setrendertarget_result = SDL_SetRenderTarget(sm->renderer, sm->texture);
+    SDL_PanicCheck(sdl_setrendertarget_result, "SetRenderTarget");
+    const int sdl_renderclear_result = SDL_RenderClear(sm->renderer);
+    SDL_PanicCheck(sdl_renderclear_result, "RenderClear");
+
+    background_draw(gm);
+    level_draw(gm);
+    raycaster_ui_draw(gm);
+    player_draw(gm);
+    player_direction_draw(gm);
+
+    // SDL_RenderCopyExF()
+
+    // XXX: Rendering the final texture to screen
+    const int sdl_setrendertarget_final_result = SDL_SetRenderTarget(sm->renderer, NULL);
+    SDL_PanicCheck(sdl_setrendertarget_final_result, "SetRenderTarget");
+    const int sdl_renderclear_final_result = SDL_RenderClear(sm->renderer);
+    SDL_PanicCheck(sdl_renderclear_final_result, "RenderClear");
+    const int sdl_rendercopy_result = SDL_RenderCopy(sm->renderer, sm->texture, NULL, NULL);
+    SDL_PanicCheck(sdl_rendercopy_result, "RenderCopy");
+
+    SDL_RenderPresent(sm->renderer);
+  }
+
+  void
+  game_events(GameManager* gm)
+  {
+    SDL_PumpEvents();
+    SDL_Event event = {0};
+
+    while (SDL_PollEvent(&event))
+      {
+        switch (event.type)
+          {
+          case SDL_QUIT:
+            gm->game_over = true;
+            break;
+
+          case SDL_WINDOWEVENT:
+            if (event.window.event == SDL_WINDOWEVENT_CLOSE)
+              {
+                gm->game_over = true;
+                break;
+              }
+            else if (event.window.event == SDL_WINDOWEVENT_FOCUS_LOST)
+              {
+                if (gm->screen_manager.fullscreen)
+                  {
+                    const int sdl_showcursor_result = SDL_ShowCursor(1);
+                    SDL_PanicCheck(sdl_showcursor_result < 0, "ShowCursor");
                 }
             }
           else if (event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED)
@@ -543,6 +639,7 @@ game_update(GameManager* gm)
   for (size_t i = 0; i < gm->players_count; ++i)
     {
       player_update(gm, i);
+      raycaster_update(gm);
     }
 }
 
