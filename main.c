@@ -273,9 +273,9 @@ player_update(GameManager* gm, size_t player_id)
     {
       player->angle -= 0.1f;
       if (player->angle < 0.0f)
-      {
-        player->angle += M_2PI;
-      }
+        {
+          player->angle += M_2PI;
+        }
       player->delta.x = cosf(player->angle) * 5.0f;
       player->delta.y = sinf(player->angle) * 5.0f;
     }
@@ -284,9 +284,9 @@ player_update(GameManager* gm, size_t player_id)
     {
       player->angle += 0.1f;
       if (player->angle > M_2PI)
-      {
-        player->angle -= M_2PI;
-      }
+        {
+          player->angle -= M_2PI;
+        }
       player->delta.x = cosf(player->angle) * 5.0f;
       player->delta.y = sinf(player->angle) * 5.0f;
     }
@@ -408,114 +408,114 @@ raycaster_update(GameManager* gm)
   r->offset.y = 0.0f;
 
   for (size_t i = 0; i < 1; ++i)
-  {
-    r->depth_of_field = 0;
-    float a_tan = -1.0f / tanf(r->angle);
-    if (r->angle > M_PI)
     {
-      r->position.y = (float)(((int) p->position.y >> 6) << 6) - 0.0001f;
-      r->position.x = (p->position.y - r->position.y) * a_tan + p->position.x;
-      r->offset.y = -64.0f;
-      r->offset.x = -r->offset.y * a_tan;
+      r->depth_of_field = 0;
+      float a_tan = -1.0f / tanf(r->angle);
+      if (r->angle > M_PI)
+        {
+          r->position.y = (float)(((int)p->position.y >> 6) << 6) - 0.0001f;
+          r->position.x = (p->position.y - r->position.y) * a_tan + p->position.x;
+          r->offset.y = -64.0f;
+          r->offset.x = -r->offset.y * a_tan;
+        }
+      if (r->angle < M_PI)
+        {
+          r->position.y = (float)(((int)p->position.y >> 6) << 6) + 64.0f;
+          r->position.x = (p->position.y - r->position.y) * a_tan + p->position.x;
+          r->offset.y = 64.0f;
+          r->offset.x = -r->offset.y * a_tan;
+        }
+      // r->angle == 0 || r->angle == M_PI
+      if (r->angle <= SDL_FLT_EPSILON || r->angle - M_PI <= SDL_FLT_EPSILON)
+        {
+          r->position.x = p->position.x;
+          r->position.y = p->position.y;
+          r->depth_of_field = 8;
+        }
+      while (r->depth_of_field < 8)
+        {
+          mx = (int32_t)(r->position.x) >> 6;
+          my = (int32_t)(r->position.y) >> 6;
+          mp = my * (int32_t)gm->level.width + mx;
+
+          // TODO: Check that 0 < mp < level.size
+          if (mp < 0 || mp > (int32_t)gm->level.size)
+            {
+              break;
+            }
+
+          if ((mp < (int32_t)gm->level.size) && (gm->level.grid[mp] == 1))
+            {
+              r->depth_of_field = 8;
+            }
+          else
+            {
+              r->position.x += r->offset.x;
+              r->position.y += r->offset.y;
+              r->depth_of_field += 1;
+            }
+        }
     }
-    if (r->angle < M_PI)
+}
+
+// XXX: Game functions
+
+void
+game_draw(GameManager* gm)
+{
+  ScreenManager* sm = &gm->screen_manager;
+
+  // XXX: Rendering the game to a texture
+  const int sdl_setrendertarget_result = SDL_SetRenderTarget(sm->renderer, sm->texture);
+  SDL_PanicCheck(sdl_setrendertarget_result, "SetRenderTarget");
+  const int sdl_renderclear_result = SDL_RenderClear(sm->renderer);
+  SDL_PanicCheck(sdl_renderclear_result, "RenderClear");
+
+  background_draw(gm);
+  level_draw(gm);
+  raycaster_ui_draw(gm);
+  player_draw(gm);
+  player_direction_draw(gm);
+
+  // SDL_RenderCopyExF()
+
+  // XXX: Rendering the final texture to screen
+  const int sdl_setrendertarget_final_result = SDL_SetRenderTarget(sm->renderer, NULL);
+  SDL_PanicCheck(sdl_setrendertarget_final_result, "SetRenderTarget");
+  const int sdl_renderclear_final_result = SDL_RenderClear(sm->renderer);
+  SDL_PanicCheck(sdl_renderclear_final_result, "RenderClear");
+  const int sdl_rendercopy_result = SDL_RenderCopy(sm->renderer, sm->texture, NULL, NULL);
+  SDL_PanicCheck(sdl_rendercopy_result, "RenderCopy");
+
+  SDL_RenderPresent(sm->renderer);
+}
+
+void
+game_events(GameManager* gm)
+{
+  SDL_PumpEvents();
+  SDL_Event event = {0};
+
+  while (SDL_PollEvent(&event))
     {
-      r->position.y = (float)(((int) p->position.y >> 6) << 6) + 64.0f;
-      r->position.x = (p->position.y - r->position.y) * a_tan + p->position.x;
-      r->offset.y = 64.0f;
-      r->offset.x = -r->offset.y * a_tan;
-    }
-    // r->angle == 0 || r->angle == M_PI
-    if (r->angle <= SDL_FLT_EPSILON || r->angle - M_PI <= SDL_FLT_EPSILON)
-    {
-      r->position.x = p->position.x;
-      r->position.y = p->position.y;
-      r->depth_of_field = 8;
-    }
-    while (r->depth_of_field < 8)
-    {
-      mx = (int32_t)(r->position.x)>>6;
-      my = (int32_t)(r->position.y)>>6;
-      mp = my * (int32_t)gm->level.width + mx;
-      
-      //TODO: Check that 0 < mp < level.size
-      if (mp < 0 || mp > (int32_t)gm->level.size)
-      {
-        break;
-      }
+      switch (event.type)
+        {
+        case SDL_QUIT:
+          gm->game_over = true;
+          break;
 
-      if ((mp < (int32_t)gm->level.size) && (gm->level.grid[mp] == 1))
-      {
-        r->depth_of_field=8;
-      }
-      else
-      {
-        r->position.x += r->offset.x;
-        r->position.y += r->offset.y;
-        r->depth_of_field += 1;
-      }
-      }
-    }
-  }
-
-  // XXX: Game functions
-
-  void
-  game_draw(GameManager* gm)
-  {
-    ScreenManager* sm = &gm->screen_manager;
-
-    // XXX: Rendering the game to a texture
-    const int sdl_setrendertarget_result = SDL_SetRenderTarget(sm->renderer, sm->texture);
-    SDL_PanicCheck(sdl_setrendertarget_result, "SetRenderTarget");
-    const int sdl_renderclear_result = SDL_RenderClear(sm->renderer);
-    SDL_PanicCheck(sdl_renderclear_result, "RenderClear");
-
-    background_draw(gm);
-    level_draw(gm);
-    raycaster_ui_draw(gm);
-    player_draw(gm);
-    player_direction_draw(gm);
-
-    // SDL_RenderCopyExF()
-
-    // XXX: Rendering the final texture to screen
-    const int sdl_setrendertarget_final_result = SDL_SetRenderTarget(sm->renderer, NULL);
-    SDL_PanicCheck(sdl_setrendertarget_final_result, "SetRenderTarget");
-    const int sdl_renderclear_final_result = SDL_RenderClear(sm->renderer);
-    SDL_PanicCheck(sdl_renderclear_final_result, "RenderClear");
-    const int sdl_rendercopy_result = SDL_RenderCopy(sm->renderer, sm->texture, NULL, NULL);
-    SDL_PanicCheck(sdl_rendercopy_result, "RenderCopy");
-
-    SDL_RenderPresent(sm->renderer);
-  }
-
-  void
-  game_events(GameManager* gm)
-  {
-    SDL_PumpEvents();
-    SDL_Event event = {0};
-
-    while (SDL_PollEvent(&event))
-      {
-        switch (event.type)
-          {
-          case SDL_QUIT:
-            gm->game_over = true;
-            break;
-
-          case SDL_WINDOWEVENT:
-            if (event.window.event == SDL_WINDOWEVENT_CLOSE)
-              {
-                gm->game_over = true;
-                break;
-              }
-            else if (event.window.event == SDL_WINDOWEVENT_FOCUS_LOST)
-              {
-                if (gm->screen_manager.fullscreen)
-                  {
-                    const int sdl_showcursor_result = SDL_ShowCursor(1);
-                    SDL_PanicCheck(sdl_showcursor_result < 0, "ShowCursor");
+        case SDL_WINDOWEVENT:
+          if (event.window.event == SDL_WINDOWEVENT_CLOSE)
+            {
+              gm->game_over = true;
+              break;
+            }
+          else if (event.window.event == SDL_WINDOWEVENT_FOCUS_LOST)
+            {
+              if (gm->screen_manager.fullscreen)
+                {
+                  const int sdl_showcursor_result = SDL_ShowCursor(1);
+                  SDL_PanicCheck(sdl_showcursor_result < 0, "ShowCursor");
                 }
             }
           else if (event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED)
@@ -606,7 +606,7 @@ game_reset(GameManager* gm)
   gm->level.width = 8;
   gm->level.height = 8;
   gm->level.size = gm->level.width * gm->level.height;
-  gm->level.grid = malloc(sizeof(*gm->level.grid)*gm->level.size);
+  gm->level.grid = malloc(sizeof(*gm->level.grid) * gm->level.size);
 
   uint8_t level[64] = {
     1, 1, 1, 1, 1, 1, 1, 1,
@@ -617,7 +617,7 @@ game_reset(GameManager* gm)
     1, 0, 0, 0, 0, 1, 0, 1,
     1, 0, 0, 0, 0, 0, 0, 1,
     1, 1, 1, 1, 1, 1, 1, 1,
-};
+  };
 
   for (size_t i = 0; i < gm->level.width; ++i)
     {
